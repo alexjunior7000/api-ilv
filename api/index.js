@@ -10,7 +10,7 @@ const corsHandler = cors({
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const processId = async (id, intervalo, maxRetries = 5, retryDelay = 10000) => {
+const processId = async (id, intervalo, maxRetries = 5, retryDelay = 30000) => {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
