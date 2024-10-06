@@ -1,23 +1,22 @@
+// api/consultas.js
+
 const axios = require('axios');
 const promiseLimit = require('promise-limit');
 const cors = require('cors');
 
-// Configuração de CORS
 const corsHandler = cors({
-    origin: '*', // Ajuste conforme necessário
+    origin: '*',
 });
 
-// Função para delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Função para processar um único ID com retentativas
-const processId = async (id, intervalo, maxRetries = 5, retryDelay = 20000) => {
+const processId = async (id, intervalo, maxRetries = 5, retryDelay = 10000) => {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
             await delay(intervalo);
             const response = await axios.get(`https://api.illuvium-game.io/gamedata/assets/offchain/illuvials/${id}`);
-            console.log(`${id}: success`)
+            console.log(`${id} success`)
             return { id, data: response.data };
         } catch (error) {
             if (error.response && error.response.status === 403) {
@@ -25,13 +24,11 @@ const processId = async (id, intervalo, maxRetries = 5, retryDelay = 20000) => {
                 console.warn(`Erro 403 ao processar ID ${id}. Tentativa ${attempt}/${maxRetries}. Aguardando ${retryDelay / 1000} segundos antes de retentar...`);
                 await delay(retryDelay);
             } else {
-                // Para outros erros, retorne o erro imediatamente
-                console.log(`${id}: error ${error.message}`)
+                console.log(`${id} error: ${error.message}`)
                 return { id, error: error.message };
             }
         }
     }
-    // Se todas as tentativas falharem, retorne o erro 403
     return { id, error: 'Erro 403: Limite de requisições atingido após múltiplas tentativas.' };
 };
 
@@ -47,29 +44,30 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'Parâmetro "ids" deve ser um array' });
         }
 
-        // Configuração do limite de concorrência
-        const limit = promiseLimit(5); // Ajuste conforme necessário
+        // Definir tamanho do lote
+        const batchSize = 100;
+        const batches = [];
+        for (let i = 0; i < ids.length; i += batchSize) {
+            batches.push(ids.slice(i, i + batchSize));
+        }
+
+        const limit = promiseLimit(5); // Controle de concorrência
 
         const resultados = {};
 
-        // Função para processar todos os IDs
-        const processAllIds = async () => {
-            const tasks = ids.map((id) =>
-                limit(() => processId(id, intervalo))
-            );
-
-            const results = await Promise.all(tasks);
-            results.forEach((result) => {
-                if (result.data) {
-                    resultados[result.id] = result.data;
-                } else {
-                    resultados[result.id] = { error: result.error };
-                }
-            });
-        };
-
         try {
-            await processAllIds();
+            for (const batch of batches) {
+                const tasks = batch.map((id) => limit(() => processId(id, intervalo)));
+                const results = await Promise.all(tasks);
+                results.forEach((result) => {
+                    if (result.data) {
+                        resultados[result.id] = result.data;
+                    } else {
+                        resultados[result.id] = { error: result.error };
+                    }
+                });
+            }
+
             res.status(200).json(resultados);
         } catch (error) {
             console.error('Erro ao processar as requisições:', error);

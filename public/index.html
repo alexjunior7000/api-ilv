@@ -45,10 +45,9 @@
     </form>
 
     <h2>Resultado:</h2>
+    <pre id="resultado"></pre>
 
     <div id="tempo">Tempo da Pesquisa: <span id="tempo-valor">0</span> ms</div>
-    
-    <pre id="resultado"></pre>
 
     <script>
         document.getElementById('consulta-form').addEventListener('submit', async (e) => {
@@ -63,11 +62,9 @@
             }
 
             const qtd = idsInput
-
             const ids = []
-
             for (i = 0; i < qtd; i++) {
-                ids[i] = i + 1
+                ids[i] = i+1
             }
 
             const intervalo = parseInt(intervaloInput, 10);
@@ -77,34 +74,45 @@
                 return;
             }
 
-            // Inicializa o tempo na interface
+            // Definir tamanho do lote
+            const batchSize = 100;
+            const batches = [];
+            for (let i = 0; i < ids.length; i += batchSize) {
+                batches.push(ids.slice(i, i + batchSize));
+            }
+
+            // Inicializa o resultado e tempo na interface
             document.getElementById('resultado').textContent = 'Processando...';
             document.getElementById('tempo-valor').textContent = '0';
 
             // Inicia o temporizador
             const startTime = performance.now();
 
+            const resultados = {};
+
             try {
-                const response = await fetch('/api', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids, intervalo }),
-                });
+                for (const batch of batches) {
+                    const response = await fetch('/api', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: batch, intervalo }),
+                    });
+
+                    const data = await response.json();
+                    Object.assign(resultados, data);
+                }
 
                 const endTime = performance.now();
-                const duration = Math.round(endTime - startTime); // Tempo em milissegundos
-
-                const data = await response.json();
+                const duration = Math.round(endTime - startTime);
 
                 // Exibe o resultado
-                document.getElementById('resultado').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('resultado').textContent = JSON.stringify(resultados, null, 2);
 
                 // Exibe o tempo da pesquisa
                 document.getElementById('tempo-valor').textContent = duration;
-
             } catch (error) {
                 const endTime = performance.now();
-                const duration = Math.round(endTime - startTime); // Tempo em milissegundos
+                const duration = Math.round(endTime - startTime);
 
                 document.getElementById('resultado').textContent = 'Erro ao processar a requisição.';
                 document.getElementById('tempo-valor').textContent = duration;
