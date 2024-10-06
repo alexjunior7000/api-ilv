@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Teste da API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        label,
+        input,
+        button {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        #resultado {
+            background-color: #f4f4f4;
+            padding: 20px;
+            border-radius: 5px;
+            max-height: 500px;
+            overflow-y: scroll;
+        }
+
+        #tempo {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Teste da API de Consultas</h1>
+    <form id="consulta-form">
+        <label for="ids">IDs (separados por vírgula):</label>
+        <input type="text" id="ids" name="ids" required>
+
+        <label for="intervalo">Intervalo entre requisições (ms):</label>
+        <input type="number" id="intervalo" name="intervalo" value="100" required>
+
+        <button type="submit">Enviar</button>
+    </form>
+
+    <h2>Resultado:</h2>
+
+    <div id="tempo">Tempo da Pesquisa: <span id="tempo-valor">0</span> ms</div>
+    
+    <pre id="resultado"></pre>
+
+    <script>
+        document.getElementById('consulta-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const idsInput = document.getElementById('ids').value.trim();
+            const intervaloInput = document.getElementById('intervalo').value.trim();
+
+            if (!idsInput) {
+                alert('Por favor, insira pelo menos um ID.');
+                return;
+            }
+
+            const qtd = idsInput
+
+            const ids = []
+
+            for (i = 0; i < qtd; i++) {
+                ids[i] = i + 1
+            }
+
+            const intervalo = parseInt(intervaloInput, 10);
+
+            if (ids.length === 0) {
+                alert('Por favor, insira IDs válidos.');
+                return;
+            }
+
+            // Inicializa o tempo na interface
+            document.getElementById('resultado').textContent = 'Processando...';
+            document.getElementById('tempo-valor').textContent = '0';
+
+            // Inicia o temporizador
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch('/api', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids, intervalo }),
+                });
+
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime); // Tempo em milissegundos
+
+                const data = await response.json();
+
+                // Exibe o resultado
+                document.getElementById('resultado').textContent = JSON.stringify(data, null, 2);
+
+                // Exibe o tempo da pesquisa
+                document.getElementById('tempo-valor').textContent = duration;
+
+            } catch (error) {
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime); // Tempo em milissegundos
+
+                document.getElementById('resultado').textContent = 'Erro ao processar a requisição.';
+                document.getElementById('tempo-valor').textContent = duration;
+
+                console.error('Erro:', error);
+            }
+        });
+    </script>
+</body>
+
+</html>
